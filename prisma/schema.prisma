@@ -95,10 +95,10 @@ model Ticket {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  status    TicketStatus   @relation(fields: [statusId], references: [id])
-  priority  TicketPriority? @relation(fields: [priorityId], references: [id])
-  createdBy User           @relation("TicketCreator", fields: [createdById], references: [id])
+  project  Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status   TicketStatus   @relation(fields: [statusId], references: [id])
+  priority TicketPriority? @relation(fields: [priorityId], references: [id])
+  createdBy User           @relation("TicketCreator", fields: [createdById], references: [id], onDelete: Cascade)
   assignees TicketAssignee[]
   comments  TicketComment[]
   attachments Attachment[]
@@ -154,7 +154,7 @@ model TicketAssignee {
 
   ticket     Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   user       User   @relation("TicketAssignee_user", fields: [userId], references: [id], onDelete: Cascade)
-  assignedBy User?  @relation("TicketAssignee_assignedBy", fields: [assignedById], references: [id])
+  assignedBy User?  @relation("TicketAssignee_assignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
 
   @@unique([ticketId, userId])
 }
