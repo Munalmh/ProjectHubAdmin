@@ -3,6 +3,7 @@ import { Inter } from "next/font/google"
 import { ThemeProvider } from "next-themes"
 import { ServiceWorkerRegister } from "@/components/pwa-register"
 import { QueryProvider } from "@/components/providers/query-provider"
+import '@sbmdkl/nepali-datepicker-reactjs/dist/index.css'
 import "./globals.css"
 
 const inter = Inter({
