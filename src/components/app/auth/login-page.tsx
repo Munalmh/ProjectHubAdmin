@@ -273,12 +273,12 @@ export function LoginPage() {
             <button
               type="button"
               onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-              className="w-full text-center text-sm text-brand-muted hover:text-white mt-5 transition-colors"
+              className="group w-full text-center text-sm text-brand-muted mt-5"
             >
               {mode === 'login' ? (
-                <>New here? <span className="text-brand-accent">Create an account</span></>
+                <>New here? <span className="text-brand-accent group-hover:text-white group-hover:underline transition-colors">Create an account</span></>
               ) : (
-                <>Already have an account? <span className="text-brand-accent">Sign in</span></>
+                <>Already have an account? <span className="text-brand-accent group-hover:text-white group-hover:underline transition-colors">Sign in</span></>
               )}
             </button>
           </div>
