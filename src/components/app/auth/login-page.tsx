@@ -205,9 +205,6 @@ export function LoginPage() {
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Sign in
                 </Button>
-                <p className="text-xs text-center text-brand-muted">
-                  Demo: admin@company.com / admin123
-                </p>
               </form>
             ) : (
               <form onSubmit={handleRegister} className="space-y-4">
