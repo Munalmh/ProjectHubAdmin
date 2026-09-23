@@ -248,23 +248,27 @@ export function ProjectsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="project-start">Start Date</Label>
-                    <NepaliCalendar
-                      defaultDate={formStartDate || ''}
-                      onChange={({ bsDate }: { bsDate: string }) => setFormStartDate(bsDate)}
-                      language="en"
-                      dateFormat="YYYY-MM-DD"
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                    />
+                    <div className="relative">
+                      <NepaliCalendar
+                        defaultDate={formStartDate || ''}
+                        onChange={({ bsDate }: { bsDate: string }) => setFormStartDate(bsDate)}
+                        language="en"
+                        dateFormat="YYYY-MM-DD"
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                    </div>
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="project-end">End Date</Label>
-                    <NepaliCalendar
-                      defaultDate={formEndDate || ''}
-                      onChange={({ bsDate }: { bsDate: string }) => setFormEndDate(bsDate)}
-                      language="en"
-                      dateFormat="YYYY-MM-DD"
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                    />
+                    <div className="relative end-date-picker">
+                      <NepaliCalendar
+                        defaultDate={formEndDate || ''}
+                        onChange={({ bsDate }: { bsDate: string }) => setFormEndDate(bsDate)}
+                        language="en"
+                        dateFormat="YYYY-MM-DD"
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className="grid gap-2">

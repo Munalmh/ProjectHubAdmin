@@ -204,3 +204,9 @@
 ._3fmCl:hover {
   border-color: var(--foreground) !important;
 }
+
+/* Align right column datepicker to the right so it doesn't overflow DialogContent */
+.end-date-picker ._2xcMq {
+  right: 0 !important;
+  left: auto !important;
+}
