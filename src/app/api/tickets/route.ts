@@ -6,7 +6,7 @@ import { db } from '@/lib/db'
 import { z } from 'zod'
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
 const ticketSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -149,17 +149,21 @@ export async function POST(req: Request) {
 </html>
             `;
 
-            const { data, error } = await resend.emails.send({
-              from: 'ProjectHub <onboarding@resend.dev>',
-              to: assignee.user.email,
-              subject: `New Ticket Assigned: ${ticket.title}`,
-              html: emailHtml
-            })
-            
-            if (error) {
-              console.error(`Failed to send email to ${assignee.user.email}:`, error)
+            if (resend) {
+              const { data, error } = await resend.emails.send({
+                from: 'ProjectHub <onboarding@resend.dev>',
+                to: assignee.user.email,
+                subject: `New Ticket Assigned: ${ticket.title}`,
+                html: emailHtml
+              })
+              
+              if (error) {
+                console.error(`Failed to send email to ${assignee.user.email}:`, error)
+              } else {
+                console.log(`Email sent successfully to ${assignee.user.email}`, data)
+              }
             } else {
-              console.log(`Email sent successfully to ${assignee.user.email}`, data)
+              console.log('Skipping email notification, RESEND_API_KEY is not set')
             }
           } catch (emailError) {
             console.error('Exception while sending email:', emailError)
