@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { db } from '@/lib/db'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -20,12 +22,15 @@ export async function GET() {
       db.ticket.count({
         where: user.role === 'admin'
           ? {}
-          : { OR: [{ project: { members: { some: { userId: user.id } } } }, { assignees: { some: { userId: user.id } } }] },
+          : { assignees: { some: { userId: user.id } } },
       }),
       db.user.count(),
       db.ticket.findMany({
         take: 8,
         orderBy: { updatedAt: 'desc' },
+        where: user.role === 'admin' 
+          ? {} 
+          : { assignees: { some: { userId: user.id } } },
         include: {
           project: { select: { name: true, prefix: true, color: true } },
           status: true,
@@ -34,8 +39,16 @@ export async function GET() {
           createdBy: { select: { name: true } },
         },
       }),
-      db.ticket.groupBy({ by: ['priorityId'], _count: { id: true } }),
-      db.ticket.groupBy({ by: ['projectId'], _count: { id: true } }),
+      db.ticket.groupBy({ 
+        by: ['priorityId'], 
+        where: user.role === 'admin' ? {} : { assignees: { some: { userId: user.id } } },
+        _count: { id: true } 
+      }),
+      db.ticket.groupBy({ 
+        by: ['projectId'], 
+        where: user.role === 'admin' ? {} : { assignees: { some: { userId: user.id } } },
+        _count: { id: true } 
+      }),
     ])
 
   const priorityData = await Promise.all(

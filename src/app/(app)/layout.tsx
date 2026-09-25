@@ -98,7 +98,7 @@ function SidebarNav({ collapsed, onClose }: { collapsed?: boolean; onClose?: () 
             </div>
           )}
           {!collapsed && (
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-brand-muted hover:bg-white/10 hover:text-white" onClick={() => signOut()} title="Sign out">
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-brand-muted hover:bg-white/10 hover:text-white" onClick={() => signOut({ callbackUrl: '/' })} title="Sign out">
               <LogOut className="h-4 w-4" />
             </Button>
           )}
@@ -141,7 +141,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex bg-background">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex lg:w-60 lg:flex-col">
+      <aside className="hidden lg:flex lg:w-60 lg:flex-col shrink-0 h-screen sticky top-0">
         <SidebarNav />
       </aside>
 

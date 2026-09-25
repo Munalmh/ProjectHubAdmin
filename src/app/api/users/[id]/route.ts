@@ -31,10 +31,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const session = await getServerSession(authOptions)
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const currentUser = session.user as { id: string; role: string }
   const { id } = await params
+
+  if (currentUser.id !== id && currentUser.role !== 'admin') {
+    return NextResponse.json({ error: 'Only admins can update other users' }, { status: 403 })
+  }
+
   try {
     const body = await req.json()
     const data = updateSchema.parse(body)
+
+    if (data.role && currentUser.role !== 'admin') {
+      return NextResponse.json({ error: 'Only admins can update roles' }, { status: 403 })
+    }
 
     const updateData: Record<string, string> = {}
     if (data.name) updateData.name = data.name
@@ -65,6 +75,13 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
 
   if (currentUser.role !== 'admin') {
     return NextResponse.json({ error: 'Only admins can delete users' }, { status: 403 })
+  }
+
+  const targetUser = await db.user.findUnique({ where: { id } })
+  if (!targetUser) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+
+  if (targetUser.role === 'admin' && currentUser.id !== id) {
+    return NextResponse.json({ error: 'Cannot delete other admin accounts' }, { status: 403 })
   }
 
   await db.user.delete({ where: { id } })
