@@ -40,9 +40,21 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     async session({ session, token }) {
-      if (session.user) {
-        (session.user as { id: string }).id = token.id as string
-        (session.user as { role: string }).role = token.role as string
+      if (token?.id) {
+        const dbUser = await db.user.findUnique({
+          where: { id: token.id as string },
+          select: { id: true, role: true }
+        })
+
+        if (!dbUser) {
+          // User was deleted from the database. Invalidate their session.
+          return {} as any
+        }
+
+        if (session.user) {
+          (session.user as { id: string }).id = dbUser.id;
+          (session.user as { role: string }).role = dbUser.role;
+        }
       }
       return session
     },
