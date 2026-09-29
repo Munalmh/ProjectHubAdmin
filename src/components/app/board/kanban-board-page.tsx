@@ -21,7 +21,7 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { ArrowLeft, GripVertical, Calendar, List, Plus } from 'lucide-react'
+import { ArrowLeft, GripVertical, Calendar, List, Plus, FoldHorizontal, UnfoldHorizontal } from 'lucide-react'
 import { format, isPast, isToday } from 'date-fns'
 
 interface Ticket {
@@ -125,6 +125,20 @@ export function KanbanBoardPage() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null)
   const [initialStatusId, setInitialStatusId] = useState<string | null>(null)
+  const [collapsedColumns, setCollapsedColumns] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    const saved = localStorage.getItem('phub-collapsed-columns')
+    if (saved) setCollapsedColumns(JSON.parse(saved))
+  }, [])
+
+  function toggleColumn(id: string) {
+    setCollapsedColumns(prev => {
+      const next = { ...prev, [id]: !prev[id] }
+      localStorage.setItem('phub-collapsed-columns', JSON.stringify(next))
+      return next
+    })
+  }
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -287,31 +301,61 @@ export function KanbanBoardPage() {
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
           <ScrollArea className="flex-1">
             <div className="flex gap-4 p-1 min-h-[calc(100vh-200px)]">
-              {columns.map(col => (
-                <div key={col.id} className="w-[280px] min-w-[280px] shrink-0 flex flex-col">
-                  <div className="flex items-center gap-2 mb-3 px-1">
-                    <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: col.color }} />
-                    <h3 className="text-sm font-semibold">{col.name}</h3>
-                    <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{col.tickets.length}</Badge>
+              {columns.map(col => {
+                const isCollapsed = collapsedColumns[col.id]
+                return (
+                <div key={col.id} className={`shrink-0 flex flex-col transition-all duration-300 ease-in-out ${isCollapsed ? 'w-[50px] min-w-[50px]' : 'w-[280px] min-w-[280px]'}`}>
+                  <div className="flex items-center gap-2 mb-3 px-1 h-8">
+                    {!isCollapsed && (
+                      <>
+                        <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
+                        <h3 className="text-sm font-semibold truncate flex-1">{col.name}</h3>
+                        <Badge variant="secondary" className="text-[10px] h-5 px-1.5 shrink-0">{col.tickets.length}</Badge>
+                      </>
+                    )}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className={`h-6 w-6 shrink-0 text-muted-foreground ${isCollapsed ? 'mx-auto' : ''}`}
+                      onClick={() => toggleColumn(col.id)}
+                      title={isCollapsed ? "Expand column" : "Collapse column"}
+                    >
+                      {isCollapsed ? <UnfoldHorizontal className="h-4 w-4" /> : <FoldHorizontal className="h-4 w-4" />}
+                    </Button>
                   </div>
-                  <SortableContext items={col.tickets.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                  <SortableContext items={isCollapsed ? [] : col.tickets.map(t => t.id)} strategy={verticalListSortingStrategy}>
                     <DroppableColumn id={col.id}>
-                      {col.tickets.map(ticket => (
-                        <SortableTicket 
-                          key={ticket.id} 
-                          ticket={ticket} 
-                          canDrag={(session?.user as any)?.role !== 'admin' && !!project?.members?.some(m => m.user.id === (session?.user as any)?.id)} 
-                        />
-                      ))}
-                      {col.tickets.length === 0 && (
-                        <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                          <p className="text-xs text-muted-foreground">No tickets</p>
+                      {!isCollapsed ? (
+                        <>
+                          {col.tickets.map(ticket => (
+                            <SortableTicket 
+                              key={ticket.id} 
+                              ticket={ticket} 
+                              canDrag={(session?.user as any)?.role !== 'admin' && !!project?.members?.some(m => m.user.id === (session?.user as any)?.id)} 
+                            />
+                          ))}
+                          {col.tickets.length === 0 && (
+                            <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                              <p className="text-xs text-muted-foreground">No tickets</p>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex-1 flex flex-col items-center pt-2">
+                          <div className="h-2.5 w-2.5 rounded-full mb-4 shrink-0" style={{ backgroundColor: col.color }} />
+                          <Badge variant="secondary" className="text-[10px] h-5 px-1.5 shrink-0 mb-4">{col.tickets.length}</Badge>
+                          <div 
+                            className="text-sm font-semibold text-muted-foreground whitespace-nowrap" 
+                            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+                          >
+                            {col.name}
+                          </div>
                         </div>
                       )}
                     </DroppableColumn>
                   </SortableContext>
                 </div>
-              ))}
+              )})}
             </div>
             <ScrollBar orientation="horizontal" />
           </ScrollArea>

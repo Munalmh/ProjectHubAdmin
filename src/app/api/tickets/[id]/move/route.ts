@@ -28,6 +28,25 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   // themselves, and skip entirely if the status didn't actually change
   // (e.g. dropped back in the same column).
   if (previous && previous.statusId !== ticket.statusId) {
+    // Keep a footprint / activity log for "Done" tasks
+    if (!previous.status.isCompleted && ticket.status.isCompleted) {
+      await db.ticketComment.create({
+        data: {
+          content: `System: Ticket was marked as '${ticket.status.name}' (Completed).`,
+          ticketId: ticket.id,
+          userId: user.id,
+        },
+      })
+    } else if (previous.status.isCompleted && !ticket.status.isCompleted) {
+      await db.ticketComment.create({
+        data: {
+          content: `System: Ticket was moved back from '${previous.status.name}' (Completed) to '${ticket.status.name}'.`,
+          ticketId: ticket.id,
+          userId: user.id,
+        },
+      })
+    }
+
     await Promise.all(
       ticket.assignees
         .filter((a) => a.userId !== user.id)

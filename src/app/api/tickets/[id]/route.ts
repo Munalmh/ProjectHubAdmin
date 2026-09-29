@@ -46,6 +46,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const body = await req.json()
     const data = updateSchema.parse(body)
 
+    const previous = await db.ticket.findUnique({ where: { id }, include: { status: true } })
+
     const ticket = await db.ticket.update({
       where: { id },
       data: {
@@ -61,6 +63,28 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         createdBy: { select: { name: true } },
       },
     })
+
+    if (previous && previous.statusId !== ticket.statusId) {
+      const user = session.user as { id: string; name: string }
+      if (!previous.status.isCompleted && ticket.status.isCompleted) {
+        await db.ticketComment.create({
+          data: {
+            content: `System: Ticket was marked as '${ticket.status.name}' (Completed).`,
+            ticketId: ticket.id,
+            userId: user.id,
+          },
+        })
+      } else if (previous.status.isCompleted && !ticket.status.isCompleted) {
+        await db.ticketComment.create({
+          data: {
+            content: `System: Ticket was moved back from '${previous.status.name}' (Completed) to '${ticket.status.name}'.`,
+            ticketId: ticket.id,
+            userId: user.id,
+          },
+        })
+      }
+    }
+
     return NextResponse.json(ticket)
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {

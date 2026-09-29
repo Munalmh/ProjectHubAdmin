@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { format, parseISO } from 'date-fns'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import NepaliCalendar from '@sbmdkl/nepali-datepicker-reactjs'
 import { formatBs } from '@/lib/nepali-date'
-import { Plus, FolderKanban, Users, Ticket, CalendarDays } from 'lucide-react'
+import { Plus, FolderKanban, Users, Ticket, CalendarDays, ChevronDown, ChevronRight, CheckCircle2 } from 'lucide-react'
 import { ExcelActions } from '@/components/app/shared/excel-actions'
 import { toast } from 'sonner'
 import { useAppStore } from '@/store/app-store'
@@ -57,6 +57,20 @@ export function ProjectsPage() {
   const queryClient = useQueryClient()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [showDone, setShowDone] = useState(false)
+
+  useEffect(() => {
+    const saved = localStorage.getItem('projecthub-show-done')
+    if (saved) setShowDone(JSON.parse(saved))
+  }, [])
+
+  function toggleShowDone() {
+    setShowDone(prev => {
+      const next = !prev
+      localStorage.setItem('projecthub-show-done', JSON.stringify(next))
+      return next
+    })
+  }
 
   // Form state
   const [formName, setFormName] = useState('')
@@ -131,6 +145,64 @@ export function ProjectsPage() {
       setCreating(false)
     }
   }
+
+  const activeProjects = projects.filter(p => p.status !== 'done')
+  const doneProjects = projects.filter(p => p.status === 'done')
+
+  const renderProject = (project: Project) => (
+    <Card
+      key={project.id}
+      className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+      onClick={() => router.push('/projects/' + project.id)}
+    >
+      <CardContent className="p-0">
+        <div className="flex">
+          {/* Color strip on left */}
+          <div
+            className="w-1.5 shrink-0"
+            style={{ backgroundColor: project.color }}
+          />
+          <div className="p-5 flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-semibold text-sm truncate">{project.name}</h3>
+              <Badge variant="outline" className="text-[10px] shrink-0 font-mono">
+                {project.prefix}
+              </Badge>
+            </div>
+            {project.description && (
+              <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">
+                {project.description}
+              </p>
+            )}
+            <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Ticket className="h-3 w-3" />
+                {project._count.tickets}
+              </span>
+              <span className="flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                {project._count.members}
+              </span>
+            </div>
+            {(project.startDate || project.endDate) && (
+              <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                <CalendarDays className="h-3 w-3" />
+                <span>
+                  {project.startDate
+                    ? formatBs(project.startDate, 'MMM D, YYYY')
+                    : 'TBD'}
+                  {' — '}
+                  {project.endDate
+                    ? formatBs(project.endDate, 'MMM D, YYYY')
+                    : 'TBD'}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
 
   if (error) {
     return (
@@ -333,61 +405,38 @@ export function ProjectsPage() {
           <p className="text-sm">Create your first project to get started.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {projects.map((project) => (
-            <Card
-              key={project.id}
-              className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => router.push('/projects/' + project.id)}
-            >
-              <CardContent className="p-0">
-                <div className="flex">
-                  {/* Color strip on left */}
-                  <div
-                    className="w-1.5 shrink-0"
-                    style={{ backgroundColor: project.color }}
-                  />
-                  <div className="p-5 flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-sm truncate">{project.name}</h3>
-                      <Badge variant="outline" className="text-[10px] shrink-0 font-mono">
-                        {project.prefix}
-                      </Badge>
-                    </div>
-                    {project.description && (
-                      <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">
-                        {project.description}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Ticket className="h-3 w-3" />
-                        {project._count.tickets}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        {project._count.members}
-                      </span>
-                    </div>
-                    {(project.startDate || project.endDate) && (
-                      <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                        <CalendarDays className="h-3 w-3" />
-                        <span>
-                          {project.startDate
-                            ? formatBs(project.startDate, 'MMM D, YYYY')
-                            : 'TBD'}
-                          {' — '}
-                          {project.endDate
-                            ? formatBs(project.endDate, 'MMM D, YYYY')
-                            : 'TBD'}
-                        </span>
-                      </div>
-                    )}
+        <div className="space-y-8">
+          {/* Active Projects */}
+          {activeProjects.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {activeProjects.map(renderProject)}
+            </div>
+          )}
+
+          {/* Done Projects */}
+          {doneProjects.length > 0 && (
+            <div className="border rounded-lg bg-muted/20">
+              <button
+                onClick={toggleShowDone}
+                className="flex items-center gap-2 w-full p-4 hover:bg-muted/40 transition-colors"
+              >
+                {showDone ? <ChevronDown className="h-5 w-5 text-muted-foreground" /> : <ChevronRight className="h-5 w-5 text-muted-foreground" />}
+                <CheckCircle2 className="h-5 w-5 text-green-500" />
+                <h3 className="font-medium">Completed Projects</h3>
+                <Badge variant="secondary" className="ml-auto">{doneProjects.length}</Badge>
+              </button>
+              
+              <div
+                className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${showDone ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+              >
+                <div className="overflow-hidden">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4 pt-0">
+                    {doneProjects.map(renderProject)}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
