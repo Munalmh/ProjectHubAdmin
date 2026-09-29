@@ -217,6 +217,13 @@ export function KanbanBoardPage() {
 
   async function handleDragEnd(event: DragEndEvent) {
     const { active } = event
+
+    // Optimistically update React Query cache BEFORE clearing dragging state
+    // This prevents the UI from rubber-banding back to the old server state
+    if (project) {
+      queryClient.setQueryData(['project', selectedProjectId], project)
+    }
+
     setActiveId(null)
     setActiveTicket(null)
     const startStatusId = initialStatusId
@@ -235,6 +242,7 @@ export function KanbanBoardPage() {
         if (!res.ok) {
           toast.error('Failed to move ticket')
           setProject(prev => prev ? { ...prev, tickets: prev.tickets.map(t => t.id === ticketId ? { ...t, statusId: startStatusId } : t) } : prev)
+          queryClient.invalidateQueries({ queryKey: ['project', selectedProjectId] })
         } else {
           // Sync server query data silently
           queryClient.invalidateQueries({ queryKey: ['project', selectedProjectId] })
@@ -242,6 +250,7 @@ export function KanbanBoardPage() {
       } catch {
         toast.error('Failed to move ticket')
         setProject(prev => prev ? { ...prev, tickets: prev.tickets.map(t => t.id === ticketId ? { ...t, statusId: startStatusId } : t) } : prev)
+        queryClient.invalidateQueries({ queryKey: ['project', selectedProjectId] })
       }
     }
   }
