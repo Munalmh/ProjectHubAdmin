@@ -92,6 +92,7 @@ export function ProjectsPage() {
       if (!res.ok) throw new Error('Failed to load projects')
       return res.json()
     },
+    refetchInterval: 3000,
   })
 
   function resetForm() {

@@ -95,6 +95,7 @@ export function TicketsPage() {
       if (!res.ok) throw new Error('Failed to load tickets')
       return res.json()
     },
+    refetchInterval: 3000,
   })
 
   const { data: projects = [] } = useQuery<Project[]>({

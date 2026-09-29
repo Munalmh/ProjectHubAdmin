@@ -159,12 +159,14 @@ export function KanbanBoardPage() {
       return res.json()
     },
     enabled: !!selectedProjectId,
+    refetchInterval: 3000, // Real-time updates every 3 seconds
   })
 
   useEffect(() => {
+    if (activeId !== null) return // Prevent overwriting optimistic state while dragging
     if (serverProject) setProject(serverProject)
     else setProject(null)
-  }, [serverProject])
+  }, [serverProject, activeId])
 
   function handleDragStart(event: DragStartEvent) {
     setActiveId(event.active.id as string)
