@@ -12,8 +12,9 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
 import { TicketAttachments } from '@/components/app/tickets/ticket-attachments'
 import { TicketChecklist } from '@/components/app/tickets/ticket-checklist'
@@ -150,6 +151,34 @@ export function KanbanBoardPage() {
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
   const [commentLoading, setCommentLoading] = useState(false)
+
+  const [addStatusOpen, setAddStatusOpen] = useState(false)
+  const [addStatusForm, setAddStatusForm] = useState({ name: '', color: '#6b7280' })
+  const [addStatusLoading, setAddStatusLoading] = useState(false)
+
+  async function handleAddStatus() {
+    if (!addStatusForm.name.trim() || !project) return
+    setAddStatusLoading(true)
+    try {
+      const res = await fetch(`/api/projects/${project.id}/statuses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...addStatusForm, sortOrder: project.statuses.length }),
+      })
+      if (res.ok) {
+        toast.success('Status added')
+        setAddStatusOpen(false)
+        setAddStatusForm({ name: '', color: '#6b7280' })
+        queryClient.invalidateQueries({ queryKey: ['project', selectedProjectId] })
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to add status')
+      }
+    } catch {
+      toast.error('Failed to add status')
+    }
+    setAddStatusLoading(false)
+  }
 
   useEffect(() => {
     const saved = localStorage.getItem('phub-collapsed-columns')
@@ -459,6 +488,11 @@ export function KanbanBoardPage() {
                   </SortableContext>
                 </div>
               )})}
+              <div className="shrink-0 w-[280px]">
+                <Button variant="outline" className="w-full border-dashed h-8 text-muted-foreground" onClick={() => setAddStatusOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" /> Add Status
+                </Button>
+              </div>
             </div>
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
@@ -548,6 +582,35 @@ export function KanbanBoardPage() {
           ) : (
             <div className="flex items-center justify-center py-8"><Skeleton className="h-32 w-full" /></div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Status Dialog */}
+      <Dialog open={addStatusOpen} onOpenChange={setAddStatusOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Add Status</DialogTitle>
+            <DialogDescription>Create a new column for this board.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Name</Label>
+              <Input value={addStatusForm.name} onChange={e => setAddStatusForm(prev => ({...prev, name: e.target.value}))} placeholder="e.g. In Review" />
+            </div>
+            <div className="grid gap-2">
+              <Label>Color</Label>
+              <div className="flex gap-2">
+                <Input type="color" className="w-12 p-1" value={addStatusForm.color} onChange={e => setAddStatusForm(prev => ({...prev, color: e.target.value}))} />
+                <Input value={addStatusForm.color} onChange={e => setAddStatusForm(prev => ({...prev, color: e.target.value}))} placeholder="#000000" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddStatusOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddStatus} disabled={addStatusLoading || !addStatusForm.name.trim()}>
+              {addStatusLoading ? 'Saving...' : 'Add Status'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
