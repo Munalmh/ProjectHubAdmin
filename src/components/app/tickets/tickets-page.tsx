@@ -24,6 +24,7 @@ import { TicketChecklist } from '@/components/app/tickets/ticket-checklist'
 import { TicketAssignees } from '@/components/app/tickets/ticket-assignees'
 import { TicketTimesheet } from '@/components/app/tickets/ticket-timesheet'
 import { ExcelActions } from '@/components/app/shared/excel-actions'
+import { StarRating } from '@/components/app/shared/star-rating'
 import { Search, Plus, X, Send, Calendar, User as UserIcon, Trash2 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 
@@ -31,6 +32,7 @@ interface Ticket {
   id: string; title: string; uuid: string; description?: string
   projectId: string; statusId: string; priorityId?: string
   startDate?: string; dueDate?: string; createdAt: string; updatedAt: string
+  stars: number
   project: { id: string; name: string; prefix: string; color: string }
   status: { id: string; name: string; color: string; isCompleted: boolean }
   priority: { id: string; name: string; color: string } | null
@@ -69,7 +71,7 @@ export function TicketsPage() {
 
   // Create dialog
   const [createOpen, setCreateOpen] = useState(false)
-  const [createForm, setCreateForm] = useState({ title: '', description: '', projectId: '', statusId: '', priorityId: '', dueDate: '' })
+  const [createForm, setCreateForm] = useState({ title: '', description: '', projectId: '', statusId: '', priorityId: '', dueDate: '', stars: 0 })
   const [createLoading, setCreateLoading] = useState(false)
   const [createStatuses, setCreateStatuses] = useState<{ id: string; name: string }[]>([])
   const [members, setMembers] = useState<ProjectMember[]>([])
@@ -115,7 +117,7 @@ export function TicketsPage() {
   })
 
   async function openCreateDialog() {
-    setCreateForm({ title: '', description: '', projectId: '', statusId: '', priorityId: '', dueDate: '' })
+    setCreateForm({ title: '', description: '', projectId: '', statusId: '', priorityId: '', dueDate: '', stars: 0 })
     setSelectedAssignees([])
     setCreateStatuses([])
     setCreateOpen(true)
@@ -162,6 +164,26 @@ export function TicketsPage() {
       }
     } catch { toast.error('Failed to add comment') }
     setCommentLoading(false)
+  }
+
+  async function updateTicketStars(ticketId: string, stars: number) {
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stars }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setSelectedTicket(updated)
+        queryClient.invalidateQueries({ queryKey: ['tickets'] })
+        toast.success('Priority updated')
+      } else {
+        toast.error('Failed to update priority')
+      }
+    } catch {
+      toast.error('Failed to update priority')
+    }
   }
 
   async function deleteTicket(id: string, e?: React.MouseEvent) {
@@ -248,6 +270,9 @@ export function TicketsPage() {
                         {ticket.project.prefix}-{ticket.uuid.slice(0, 6)}
                       </span>
                       <span className="text-sm font-medium truncate">{ticket.title}</span>
+                      <div onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+                        <StarRating value={ticket.stars} onChange={(v) => updateTicketStars(ticket.id, v)} starClassName="h-3 w-3" />
+                      </div>
                     </div>
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={(e) => deleteTicket(ticket.id, e)}>
@@ -325,9 +350,17 @@ export function TicketsPage() {
                 </Select>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Due Date</Label>
-              <Input type="date" value={createForm.dueDate} onChange={e => setCreateForm(f => ({ ...f, dueDate: e.target.value }))} />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Priority</Label>
+                <div className="pt-2">
+                  <StarRating value={createForm.stars} onChange={v => setCreateForm(f => ({ ...f, stars: v }))} className="scale-125 origin-left" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Due Date</Label>
+                <Input type="date" value={createForm.dueDate} onChange={e => setCreateForm(f => ({ ...f, dueDate: e.target.value }))} />
+              </div>
             </div>
             {createForm.projectId && members.length > 0 && (
               <div className="space-y-2">
@@ -378,9 +411,13 @@ export function TicketsPage() {
                 </div>
                 <DialogTitle className="text-lg">{selectedTicket.title}</DialogTitle>
               </DialogHeader>
-              <div className="flex flex-wrap gap-2 mb-4">
+              <div className="flex flex-wrap items-center gap-3 mb-4">
                 <Badge style={{ backgroundColor: selectedTicket.status.color + '20', color: selectedTicket.status.color }}>{selectedTicket.status.name}</Badge>
                 {selectedTicket.priority && <Badge variant="outline" style={{ borderColor: selectedTicket.priority.color, color: selectedTicket.priority.color }}>{selectedTicket.priority.name}</Badge>}
+                <div className="flex items-center gap-2 border-l pl-3 ml-1">
+                  <span className="text-xs text-muted-foreground font-medium">Priority</span>
+                  <StarRating value={selectedTicket.stars} onChange={(v) => updateTicketStars(selectedTicket.id, v)} />
+                </div>
               </div>
               {selectedTicket.description && (
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap mb-4">{selectedTicket.description}</p>

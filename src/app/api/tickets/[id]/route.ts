@@ -11,6 +11,7 @@ const updateSchema = z.object({
   priorityId: z.string().nullable().optional(),
   startDate: z.string().nullable().optional(),
   dueDate: z.string().nullable().optional(),
+  stars: z.number().int().min(0).max(5).optional(),
 })
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {

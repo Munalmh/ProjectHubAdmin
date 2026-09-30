@@ -17,6 +17,7 @@ const ticketSchema = z.object({
   assigneeIds: z.array(z.string()).optional(),
   startDate: z.string().nullable().optional(),
   dueDate: z.string().nullable().optional(),
+  stars: z.number().int().min(0).max(5).optional(),
 })
 
 export async function GET(req: Request) {

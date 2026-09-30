@@ -37,6 +37,7 @@ model Project {
   endDate     DateTime?
   status      String    @default("active")
   budgetHours Float?
+  stars       Int       @default(0)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -91,6 +92,7 @@ model Ticket {
   priorityId  String?
   startDate   DateTime?
   dueDate     DateTime?
+  stars       Int       @default(0)
   createdById String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

@@ -34,6 +34,7 @@ import { TicketAttachments } from '@/components/app/tickets/ticket-attachments'
 import { TicketChecklist } from '@/components/app/tickets/ticket-checklist'
 import { TicketTimesheet } from '@/components/app/tickets/ticket-timesheet'
 import { ProjectGanttChart } from '@/components/app/projects/project-gantt-chart'
+import { StarRating } from '@/components/app/shared/star-rating'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
@@ -81,6 +82,7 @@ interface TicketItem {
   priority: { name: string; color: string }
   assignees: { user: { id: string; name: string } }[]
   createdBy: { id: string; name: string }
+  stars: number
 }
 
 interface ProjectDetail {
@@ -99,6 +101,7 @@ interface ProjectDetail {
   statuses: ProjectStatus[]
   members: ProjectMember[]
   tickets: TicketItem[]
+  stars: number
 }
 
 interface Priority {
@@ -160,6 +163,7 @@ export function ProjectDetailPage() {
     assigneeIds: [] as string[],
     startDate: '',
     dueDate: '',
+    stars: 0,
   })
   const [priorities, setPriorities] = useState<Priority[]>([])
 
@@ -309,6 +313,7 @@ export function ProjectDetailPage() {
       assigneeIds: [],
       startDate: '',
       dueDate: '',
+      stars: 0,
     })
     setTicketDialogOpen(true)
   }
@@ -337,6 +342,7 @@ export function ProjectDetailPage() {
           assigneeIds: ticketForm.assigneeIds,
           startDate: ticketForm.startDate || null,
           dueDate: ticketForm.dueDate || null,
+          stars: ticketForm.stars,
         }),
       })
       if (!res.ok) {
@@ -399,6 +405,26 @@ export function ProjectDetailPage() {
       toast.error(err instanceof Error ? err.message : 'Failed to add comment')
     } finally {
       setSubmittingComment(false)
+    }
+  }
+
+  async function updateTicketStars(ticketId: string, stars: number) {
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stars }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setSelectedTicket(updated)
+        loadProject()
+        toast.success('Priority updated')
+      } else {
+        toast.error('Failed to update priority')
+      }
+    } catch {
+      toast.error('Failed to update priority')
     }
   }
 
@@ -491,6 +517,7 @@ export function ProjectDetailPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
+              {project.stars > 0 && <StarRating value={project.stars} readonly />}
               <Badge
                 variant="outline"
                 className="text-[10px] font-mono"
@@ -775,6 +802,9 @@ export function ProjectDetailPage() {
                           <h3 className="font-medium text-sm truncate">
                             {ticket.title}
                           </h3>
+                          <div onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+                            <StarRating value={ticket.stars} onChange={(v) => updateTicketStars(ticket.id, v)} starClassName="h-3 w-3" />
+                          </div>
                         </div>
                         <div className="flex items-center gap-2 mt-1.5">
                           <Badge
@@ -923,6 +953,12 @@ export function ProjectDetailPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Star Priority</Label>
+                  <div className="pt-2">
+                    <StarRating value={ticketForm.stars} onChange={(v) => setTicketForm((p) => ({ ...p, stars: v }))} className="scale-125 origin-left" />
+                  </div>
                 </div>
               </div>
               <div className="grid gap-2">
@@ -1109,6 +1145,10 @@ export function ProjectDetailPage() {
                       {selectedTicket.priority.name}
                     </Badge>
                   ) : null}
+                  <div className="flex items-center gap-2 border-l pl-3 ml-1">
+                    <span className="text-xs text-muted-foreground font-medium">Priority</span>
+                    <StarRating value={selectedTicket.stars} onChange={(v) => updateTicketStars(selectedTicket.id, v)} />
+                  </div>
                 </div>
 
                 {selectedTicket.description && (

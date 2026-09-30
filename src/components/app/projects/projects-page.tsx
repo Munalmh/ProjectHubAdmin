@@ -7,6 +7,7 @@ import NepaliCalendar from '@sbmdkl/nepali-datepicker-reactjs'
 import { formatBs } from '@/lib/nepali-date'
 import { Plus, FolderKanban, Users, Ticket, CalendarDays, ChevronDown, ChevronRight, CheckCircle2 } from 'lucide-react'
 import { ExcelActions } from '@/components/app/shared/excel-actions'
+import { StarRating } from '@/components/app/shared/star-rating'
 import { toast } from 'sonner'
 import { useAppStore } from '@/store/app-store'
 import { useRouter } from 'next/navigation'
@@ -37,6 +38,7 @@ interface Project {
   endDate: string | null
   status: string
   createdAt: string
+  stars: number
   _count: { tickets: number; members: number }
   statuses: { id: string; name: string; color: string; sortOrder: number; isCompleted: boolean }[]
 }
@@ -80,6 +82,7 @@ export function ProjectsPage() {
   const [formStartDate, setFormStartDate] = useState('')
   const [formEndDate, setFormEndDate] = useState('')
   const [formBudgetHours, setFormBudgetHours] = useState('')
+  const [formStars, setFormStars] = useState(0)
 
   const {
     data: projects = [],
@@ -103,6 +106,7 @@ export function ProjectsPage() {
     setFormStartDate('')
     setFormEndDate('')
     setFormBudgetHours('')
+    setFormStars(0)
   }
 
   async function handleCreateProject(e: React.FormEvent) {
@@ -129,6 +133,7 @@ export function ProjectsPage() {
           startDate: formStartDate || null,
           endDate: formEndDate || null,
           budgetHours: formBudgetHours.trim() ? Number(formBudgetHours) : null,
+          stars: formStars,
         }),
       })
       if (!res.ok) {
@@ -166,9 +171,12 @@ export function ProjectsPage() {
           <div className="p-5 flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <h3 className="font-semibold text-sm truncate">{project.name}</h3>
-              <Badge variant="outline" className="text-[10px] shrink-0 font-mono">
-                {project.prefix}
-              </Badge>
+              <div className="flex items-center gap-2">
+                {project.stars > 0 && <StarRating value={project.stars} readonly className="mr-1" starClassName="h-3 w-3" />}
+                <Badge variant="outline" className="text-[10px] shrink-0 font-mono">
+                  {project.prefix}
+                </Badge>
+              </div>
             </div>
             {project.description && (
               <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">
@@ -343,17 +351,25 @@ export function ProjectsPage() {
                     </div>
                   </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="project-budget">Budget Hours</Label>
-                  <Input
-                    id="project-budget"
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    value={formBudgetHours}
-                    onChange={(e) => setFormBudgetHours(e.target.value)}
-                    placeholder="e.g. 200"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="project-budget">Budget Hours</Label>
+                    <Input
+                      id="project-budget"
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={formBudgetHours}
+                      onChange={(e) => setFormBudgetHours(e.target.value)}
+                      placeholder="e.g. 200"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Priority</Label>
+                    <div className="pt-2">
+                      <StarRating value={formStars} onChange={setFormStars} className="scale-125 origin-left" />
+                    </div>
+                  </div>
                 </div>
               </div>
               <DialogFooter>

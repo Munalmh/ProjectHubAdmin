@@ -11,6 +11,14 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
+import { Input } from '@/components/ui/input'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog'
+import { TicketAttachments } from '@/components/app/tickets/ticket-attachments'
+import { TicketChecklist } from '@/components/app/tickets/ticket-checklist'
+import { TicketAssignees } from '@/components/app/tickets/ticket-assignees'
+import { TicketTimesheet } from '@/components/app/tickets/ticket-timesheet'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -21,13 +29,15 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { ArrowLeft, GripVertical, Calendar, List, Plus, FoldHorizontal, UnfoldHorizontal } from 'lucide-react'
-import { format, isPast, isToday } from 'date-fns'
+import { ArrowLeft, GripVertical, Calendar, List, Plus, FoldHorizontal, UnfoldHorizontal, Trash2, Send } from 'lucide-react'
+import { format, isPast, isToday, formatDistanceToNow } from 'date-fns'
+import { StarRating } from '@/components/app/shared/star-rating'
 
 interface Ticket {
   id: string; title: string; uuid: string; description?: string
   statusId: string; priorityId?: string
   startDate?: string; dueDate?: string
+  stars: number
   project: { name: string; prefix: string; color: string }
   status: { name: string; color: string; isCompleted: boolean }
   priority: { name: string; color: string } | null
@@ -46,6 +56,11 @@ interface Project {
   members?: { user: { id: string; name: string } }[]
 }
 
+interface Comment {
+  id: string; content: string; createdAt: string
+  user: { id: string; name: string }
+}
+
 function getInitials(name: string) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 }
@@ -59,7 +74,7 @@ function UserAvatar({ name, size = 'sm' }: { name: string; size?: 'sm' | 'md' })
   )
 }
 
-function SortableTicket({ ticket, canDrag }: { ticket: Ticket; canDrag: boolean }) {
+function SortableTicket({ ticket, canDrag, onUpdateStars, onClick }: { ticket: Ticket; canDrag: boolean, onUpdateStars: (id: string, stars: number) => void, onClick: (id: string) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: ticket.id, disabled: !canDrag })
   const style = { transform: CSS.Transform.toString(transform), transition }
 
@@ -67,12 +82,15 @@ function SortableTicket({ ticket, canDrag }: { ticket: Ticket; canDrag: boolean 
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`group ${isDragging ? 'opacity-50' : ''}`}>
-      <Card className={`p-3 transition-shadow border ${canDrag ? 'cursor-grab active:cursor-grabbing hover:shadow-md' : 'opacity-80'}`}>
+      <Card onClick={() => onClick(ticket.id)} className={`p-3 transition-shadow border ${canDrag ? 'cursor-grab active:cursor-grabbing hover:shadow-md' : 'opacity-80 hover:shadow-md cursor-pointer'}`}>
         <div className="flex items-start gap-2">
           {canDrag && <GripVertical className="h-4 w-4 mt-0.5 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium leading-tight truncate">{ticket.title}</p>
             <div className="flex flex-wrap items-center gap-1.5 mt-2">
+              <div onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+                <StarRating value={ticket.stars} onChange={(v) => onUpdateStars(ticket.id, v)} starClassName="h-3 w-3" />
+              </div>
               {ticket.priority && (
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0" style={{ borderColor: ticket.priority.color, color: ticket.priority.color }}>
                   {ticket.priority.name}
@@ -127,6 +145,12 @@ export function KanbanBoardPage() {
   const [initialStatusId, setInitialStatusId] = useState<string | null>(null)
   const [collapsedColumns, setCollapsedColumns] = useState<Record<string, boolean>>({})
 
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [selectedTicketFull, setSelectedTicketFull] = useState<(any) | null>(null)
+  const [comments, setComments] = useState<Comment[]>([])
+  const [newComment, setNewComment] = useState('')
+  const [commentLoading, setCommentLoading] = useState(false)
+
   useEffect(() => {
     const saved = localStorage.getItem('phub-collapsed-columns')
     if (saved) setCollapsedColumns(JSON.parse(saved))
@@ -138,6 +162,72 @@ export function KanbanBoardPage() {
       localStorage.setItem('phub-collapsed-columns', JSON.stringify(next))
       return next
     })
+  }
+
+  async function openDetail(ticketId: string) {
+    setSelectedTicketFull(null)
+    setDetailOpen(true)
+    const res = await fetch(`/api/tickets/${ticketId}`)
+    if (res.ok) {
+      const data = await res.json()
+      setSelectedTicketFull(data)
+      setComments(data.comments || [])
+    }
+  }
+
+  async function addComment() {
+    if (!newComment.trim() || !selectedTicketFull) return
+    setCommentLoading(true)
+    try {
+      const res = await fetch(`/api/tickets/${selectedTicketFull.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newComment }),
+      })
+      if (res.ok) {
+        const comment = await res.json()
+        setComments(prev => [...prev, comment])
+        setNewComment('')
+      }
+    } catch { toast.error('Failed to add comment') }
+    setCommentLoading(false)
+  }
+
+  async function updateTicketStars(ticketId: string, stars: number) {
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stars }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        if (selectedTicketFull && selectedTicketFull.id === ticketId) {
+          setSelectedTicketFull(updated)
+        }
+        queryClient.invalidateQueries({ queryKey: ['project', selectedProjectId] })
+        toast.success('Priority updated')
+      } else {
+        toast.error('Failed to update priority')
+      }
+    } catch {
+      toast.error('Failed to update priority')
+    }
+  }
+
+  async function deleteTicket(id: string, e?: React.MouseEvent) {
+    if (e) e.stopPropagation()
+    if (!confirm('Are you sure you want to delete this ticket?')) return
+    try {
+      const res = await fetch(`/api/tickets/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        toast.success('Ticket deleted')
+        if (selectedTicketFull?.id === id) setDetailOpen(false)
+        queryClient.invalidateQueries({ queryKey: ['project', selectedProjectId] })
+      } else {
+        toast.error('Failed to delete ticket')
+      }
+    } catch { toast.error('Failed to delete ticket') }
   }
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
@@ -343,6 +433,8 @@ export function KanbanBoardPage() {
                               key={ticket.id} 
                               ticket={ticket} 
                               canDrag={(session?.user as any)?.role !== 'admin' && !!project?.members?.some(m => m.user.id === (session?.user as any)?.id)} 
+                              onUpdateStars={updateTicketStars}
+                              onClick={openDetail}
                             />
                           ))}
                           {col.tickets.length === 0 && (
@@ -370,9 +462,94 @@ export function KanbanBoardPage() {
             </div>
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
-          <DragOverlay>{activeTicket && <div className="w-[268px] opacity-80"><SortableTicket ticket={activeTicket} /></div>}</DragOverlay>
+          <DragOverlay>{activeTicket && <div className="w-[268px] opacity-80"><SortableTicket ticket={activeTicket} canDrag={false} onUpdateStars={()=>{}} onClick={()=>{}} /></div>}</DragOverlay>
         </DndContext>
       )}
+
+      {/* Ticket Detail Dialog */}
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh]">
+          {!selectedTicketFull && (
+            <DialogHeader>
+              <DialogTitle className="sr-only">Ticket details</DialogTitle>
+            </DialogHeader>
+          )}
+          {selectedTicketFull ? (
+            <>
+              <DialogHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Badge variant="outline" style={{ borderColor: selectedTicketFull.project.color, color: selectedTicketFull.project.color }}>
+                      {selectedTicketFull.project.prefix}-{selectedTicketFull.uuid.slice(0, 6)}
+                    </Badge>
+                    <span>{selectedTicketFull.project.name}</span>
+                  </div>
+                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => deleteTicket(selectedTicketFull.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <DialogTitle className="text-lg">{selectedTicketFull.title}</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-wrap items-center gap-3 mb-4">
+                <Badge style={{ backgroundColor: selectedTicketFull.status.color + '20', color: selectedTicketFull.status.color }}>{selectedTicketFull.status.name}</Badge>
+                {selectedTicketFull.priority && <Badge variant="outline" style={{ borderColor: selectedTicketFull.priority.color, color: selectedTicketFull.priority.color }}>{selectedTicketFull.priority.name}</Badge>}
+                <div className="flex items-center gap-2 border-l pl-3 ml-1">
+                  <span className="text-xs text-muted-foreground font-medium">Priority</span>
+                  <StarRating value={selectedTicketFull.stars} onChange={(v) => updateTicketStars(selectedTicketFull.id, v)} />
+                </div>
+              </div>
+              {selectedTicketFull.description && (
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap mb-4">{selectedTicketFull.description}</p>
+              )}
+              <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                <div><span className="text-muted-foreground">Created by:</span> <span className="font-medium">{selectedTicketFull.createdBy.name}</span></div>
+                <div><span className="text-muted-foreground">Updated:</span> <span className="font-medium">{formatDistanceToNow(new Date(selectedTicketFull.updatedAt))} ago</span></div>
+                {selectedTicketFull.startDate && <div><span className="text-muted-foreground">Start:</span> <span className="font-medium">{format(new Date(selectedTicketFull.startDate), 'MMM d, yyyy')}</span></div>}
+                {selectedTicketFull.dueDate && <div><span className="text-muted-foreground">Due:</span> <span className="font-medium">{format(new Date(selectedTicketFull.dueDate), 'MMM d, yyyy')}</span></div>}
+              </div>
+              <TicketAssignees ticketId={selectedTicketFull.id} initialAssignees={selectedTicketFull.assignees} />
+              <div className="border-t pt-4 mb-4">
+                <TicketChecklist ticketId={selectedTicketFull.id} />
+              </div>
+              <div className="border-t pt-4 mb-4">
+                <TicketTimesheet ticketId={selectedTicketFull.id} />
+              </div>
+              <div className="border-t pt-4 mb-4">
+                <TicketAttachments ticketId={selectedTicketFull.id} />
+              </div>
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-semibold mb-3">Comments ({comments.length})</h4>
+                <ScrollArea className="max-h-48">
+                  <div className="space-y-3">
+                    {comments.map(c => (
+                      <div key={c.id} className="flex gap-3">
+                        <div className="h-7 w-7 rounded-full bg-primary/10 text-primary text-xs font-medium flex items-center justify-center shrink-0">
+                          {getInitials(c.user.name)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">{c.user.name}</span>
+                            <span className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(c.createdAt))} ago</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-0.5">{c.content}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+                <div className="flex gap-2 mt-3">
+                  <Input value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Write a comment..." onKeyDown={e => e.key === 'Enter' && addComment()} />
+                  <Button size="icon" onClick={addComment} disabled={commentLoading || !newComment.trim()}>
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-center py-8"><Skeleton className="h-32 w-full" /></div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

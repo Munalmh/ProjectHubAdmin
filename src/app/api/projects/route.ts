@@ -12,6 +12,7 @@ const projectSchema = z.object({
   startDate: z.string().nullable().optional(),
   endDate: z.string().nullable().optional(),
   budgetHours: z.number().nonnegative().nullable().optional(),
+  stars: z.number().int().min(0).max(5).optional(),
 })
 
 export async function GET() {
