@@ -553,7 +553,7 @@ export function KanbanBoardPage() {
               </div>
               <div className="border-t pt-4">
                 <h4 className="text-sm font-semibold mb-3">Comments ({comments.length})</h4>
-                <ScrollArea className="max-h-48">
+                <ScrollArea className="max-h-72 pr-4">
                   <div className="space-y-3">
                     {comments.map(c => (
                       <div key={c.id} className="flex gap-3">

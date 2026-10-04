@@ -8,7 +8,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { UserPlus, X, Loader2, User as UserIcon } from 'lucide-react'
+import { UserPlus, X, Loader2, User as UserIcon, ArrowRightLeft } from 'lucide-react'
 
 interface AssigneeUser {
   id: string
@@ -44,6 +44,8 @@ export function TicketAssignees({
   const [open, setOpen] = useState(false)
   const [addingId, setAddingId] = useState<string | null>(null)
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const [transferringId, setTransferringId] = useState<string | null>(null)
+  const [transferOpenId, setTransferOpenId] = useState<string | null>(null)
 
   useEffect(() => {
     setAssignees(initialAssignees)
@@ -54,7 +56,7 @@ export function TicketAssignees({
       const res = await fetch('/api/users')
       if (res.ok) setCandidates(await res.json())
     } catch {
-      // Silently fail — the popover will just show no options
+      // Silently fail
     }
   }
 
@@ -77,6 +79,7 @@ export function TicketAssignees({
       toast.error(err instanceof Error ? err.message : 'Failed to assign')
     } finally {
       setAddingId(null)
+      setOpen(false)
     }
   }
 
@@ -94,6 +97,32 @@ export function TicketAssignees({
       toast.error('Failed to unassign')
     } finally {
       setRemovingId(null)
+    }
+  }
+
+  async function handleTransfer(fromUserId: string, toUserId: string) {
+    setTransferringId(toUserId)
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}/assignees/transfer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromUserId, toUserId }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to transfer')
+      }
+      const created = await res.json()
+      setAssignees((prev) => [
+        ...prev.filter((a) => a.userId !== fromUserId),
+        created,
+      ])
+      toast.success('Transferred — they have been notified')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to transfer')
+    } finally {
+      setTransferringId(null)
+      setTransferOpenId(null)
     }
   }
 
@@ -119,11 +148,55 @@ export function TicketAssignees({
             {getInitials(a.user.name)}
           </div>
           <span className="text-xs font-medium">{a.user.name}</span>
+          
+          <Popover
+            open={transferOpenId === a.userId}
+            onOpenChange={(o) => {
+              setTransferOpenId(o ? a.userId : null)
+              if (o) loadCandidates()
+            }}
+          >
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="text-muted-foreground hover:text-primary transition-opacity ml-0.5 flex items-center justify-center h-4 w-4 rounded hover:bg-muted"
+                title="Transfer"
+              >
+                <ArrowRightLeft className="h-3 w-3" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-2" align="start">
+              <p className="text-xs font-medium text-muted-foreground px-1 mb-1.5">Transfer to</p>
+              <div className="max-h-56 overflow-y-auto space-y-0.5">
+                {availableCandidates.length === 0 ? (
+                  <p className="text-xs text-muted-foreground px-1 py-2">No one else to transfer to</p>
+                ) : (
+                  availableCandidates.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      disabled={transferringId === c.id}
+                      onClick={() => handleTransfer(a.userId, c.id)}
+                      className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted text-sm"
+                    >
+                      <div className="h-6 w-6 rounded-full bg-primary/10 text-primary text-[10px] font-medium flex items-center justify-center shrink-0">
+                        {getInitials(c.name)}
+                      </div>
+                      <span className="truncate flex-1">{c.name}</span>
+                      {transferringId === c.id && <Loader2 className="h-3 w-3 animate-spin" />}
+                    </button>
+                  ))
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+
           <button
             type="button"
             onClick={() => handleRemove(a.userId)}
             disabled={removingId === a.userId}
-            className="text-muted-foreground hover:text-destructive opacity-0 group-hover/assignee:opacity-100 transition-opacity"
+            className="text-muted-foreground hover:text-destructive transition-opacity flex items-center justify-center h-4 w-4 rounded hover:bg-muted"
+            title="Remove"
           >
             {removingId === a.userId ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -173,3 +246,4 @@ export function TicketAssignees({
     </div>
   )
 }
+

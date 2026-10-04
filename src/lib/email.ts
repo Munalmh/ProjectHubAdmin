@@ -156,3 +156,41 @@ export async function sendTicketStatusChangedEmail(params: StatusChangedEmailPar
     html,
   })
 }
+
+interface TransferEmailParams {
+  to: string
+  assigneeName: string
+  transferredByName: string
+  previousAssigneeName: string
+  ticketTitle: string
+  ticketId: string
+  projectName: string
+  dueDate?: string | null
+}
+
+export async function sendTicketTransferredEmail(params: TransferEmailParams) {
+  const dueLine = params.dueDate
+    ? `<p style="margin: 4px 0 0; font-size: 13px; color: #64748b;">Due ${params.dueDate}</p>`
+    : ''
+
+  const html = emailShell(
+    `
+    <p style="font-size: 15px; color: #0b1220; margin: 0 0 16px;">Hi ${params.assigneeName},</p>
+    <p style="font-size: 14px; color: #334155; line-height: 1.6; margin: 0 0 16px;">
+      <strong>${params.transferredByName}</strong> transferred a ticket from <strong>${params.previousAssigneeName}</strong> to you in <strong>${params.projectName}</strong>:
+    </p>
+    <div style="border: 1px solid #e2e8f0; border-left: 3px solid #aee35c; border-radius: 10px; padding: 14px 16px;">
+      <p style="margin: 0; font-size: 14px; font-weight: 600; color: #0b1220;">${params.ticketTitle}</p>
+      ${dueLine}
+    </div>
+    `,
+    'View ticket',
+    `${APP_URL}/tickets?ticket=${params.ticketId}`
+  )
+
+  await sendEmail({
+    to: params.to,
+    subject: `Ticket transferred to you: ${params.ticketTitle}`,
+    html,
+  })
+}
